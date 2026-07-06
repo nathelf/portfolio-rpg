@@ -1556,13 +1556,38 @@ function scheduleLoop(t0){
     pluck(BASSPAT[i%BASSPAT.length],t0+bt,EIGHTH*3,'triangle',0.09);
   musicTimer=setTimeout(()=>{ if(musicOn) scheduleLoop(t0+loopLen); },(loopLen-0.4)*1000);
 }
-$('#music-btn').addEventListener('click',()=>{
+let musicPlaying=false;
+function startMusic(quiet){
   if(!AC){ AC=new (window.AudioContext||window.webkitAudioContext)(); master=AC.createGain(); master.connect(AC.destination); }
-  musicOn=!musicOn;
-  const b=$('#music-btn'); b.classList.toggle('on',musicOn);
-  if(musicOn){ AC.resume(); master.gain.setValueAtTime(1,AC.currentTime); scheduleLoop(AC.currentTime+0.12); b.textContent='♪ Taberna ♪'; showToast('🍺 o bardo começa a tocar…'); }
-  else{ clearTimeout(musicTimer); master.gain.setValueAtTime(0,AC.currentTime); b.textContent='♪ Taberna'; }
-});
+  musicOn=true;
+  AC.resume().then(()=>{
+    if(!musicOn||musicPlaying||AC.state!=='running') return;
+    musicPlaying=true;
+    master.gain.setValueAtTime(1,AC.currentTime);
+    scheduleLoop(AC.currentTime+0.12);
+    const b=$('#music-btn'); b.classList.add('on'); b.textContent='♪ Taberna ♪';
+    if(!quiet) showToast('🍺 o bardo começa a tocar…');
+  });
+}
+function stopMusic(){
+  musicOn=false; musicPlaying=false; clearTimeout(musicTimer);
+  if(master) master.gain.setValueAtTime(0,AC.currentTime);
+  const b=$('#music-btn'); b.classList.remove('on'); b.textContent='♪ Taberna';
+}
+$('#music-btn').addEventListener('click',e=>{ e.stopPropagation(); musicPlaying?stopMusic():startMusic(false); });
+/* autoplay desde a tela de boot: tenta no load; se o navegador bloquear,
+   engata no primeiro toque/tecla (o "Pressione Start" já conta) */
+(function autoMusic(){
+  startMusic(true);
+  setTimeout(()=>{
+    if(musicPlaying) return;
+    musicOn=false;
+    const kick=()=>{ if(!musicPlaying) startMusic(true);
+      document.removeEventListener('pointerdown',kick); document.removeEventListener('keydown',kick); };
+    document.addEventListener('pointerdown',kick);
+    document.addEventListener('keydown',kick);
+  },400);
+})();
 
 /* ================= AVATAR PIXEL ART DA NATHALIA ================= */
 /* 16×21 — ruiva cacheada, headphone azul, batom vermelho, gola marrom + blazer preto */
